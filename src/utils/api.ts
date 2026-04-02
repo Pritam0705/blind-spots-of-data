@@ -27,7 +27,7 @@ export interface OverviewData {
 }
 
 export const fetchAllData = async (): Promise<CountryData[]> => {
-  const response = await axios.get('/api/data');
+  const response = await axios.get('/public/data.json');
   return response.data;
 };
 
