@@ -7,7 +7,7 @@ import { WorldMap } from './components/WorldMap';
 import { CountryDetail } from './components/CountryDetail';
 import { Methodology } from './components/Methodology';
 import { RelationshipPlot } from './components/RelationshipPlot';
-import { fetchAllData, CountryData } from './lib/data';
+import { fetchAllData } from './lib/data';
 import { Loader2, AlertCircle } from 'lucide-react';
 
 export default function App() {
