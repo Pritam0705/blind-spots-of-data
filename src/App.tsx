@@ -8,6 +8,7 @@ import { CountryDetail } from './components/CountryDetail';
 import { Methodology } from './components/Methodology';
 import { RelationshipPlot } from './components/RelationshipPlot';
 import { fetchAllData } from './lib/data';
+import { CountryData } from './utils/api';
 import { Loader2, AlertCircle } from 'lucide-react';
 
 export default function App() {
