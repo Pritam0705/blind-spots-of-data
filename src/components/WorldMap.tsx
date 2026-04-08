@@ -55,6 +55,40 @@ export const WorldMap: React.FC<MapProps> = ({
     return Array.from(indicators);
   }, [data]);
 
+  const calculatedMetrics = ['visibility_index', 'coverage', 'recency', 'continuity'];
+  const selectedRawIndicators = useMemo(() => {
+    return [metric, secondMetric].filter(m => m && !calculatedMetrics.includes(m)) as string[];
+  }, [metric, secondMetric]);
+
+  const yearRangeForSelected = useMemo(() => {
+    if (selectedRawIndicators.length === 0) return yearRange;
+
+    let min = Infinity;
+    let max = -Infinity;
+
+    data.forEach(c => {
+      selectedRawIndicators.forEach(m => {
+        const ind = c.indicators[m];
+        if (ind) {
+          ind.history.forEach(h => {
+            if (h.Year < min) min = h.Year;
+            if (h.Year > max) max = h.Year;
+          });
+        }
+      });
+    });
+
+    if (min === Infinity || max === -Infinity) return yearRange;
+    return [min, max];
+  }, [data, selectedRawIndicators, yearRange]);
+
+  const hasTimelineSlider = selectedRawIndicators.length > 0;
+
+  useEffect(() => {
+    if (!hasTimelineSlider) return;
+    setCurrentYear(prev => Math.min(yearRangeForSelected[1], Math.max(yearRangeForSelected[0], prev)));
+  }, [yearRangeForSelected, hasTimelineSlider, setCurrentYear]);
+
   const getMetricValueAtYear = (country: CountryData, m: string, year: number) => {
     if (m === 'visibility_index') return country.visibility_index;
     if (m === 'coverage' || m === 'recency' || m === 'continuity') return country.metrics[m as keyof typeof country.metrics] * 100;
@@ -177,30 +211,21 @@ export const WorldMap: React.FC<MapProps> = ({
       .attr('stroke-width', 0.5)
       .style('cursor', 'pointer')
       .on('mouseover', (event, d: any) => {
-        const country = data.find(c => c.code === d.id);
+        const geoId = normalizeCode(d.id);
+        const country = data.find(c => c.code === d.id || c.code === geoId);
         if (country) {
           const v1 = getMetricValueAtYear(country, metric, currentYear);
-          const v2 = secondMetric ? getMetricValueAtYear(country, secondMetric, currentYear) : null;
           
           setTooltip({
             x: event.pageX,
             y: event.pageY,
             content: (
-              <div className="flex flex-col gap-1">
-                <div className="font-bold border-bottom border-slate-700 pb-1 mb-1">{country.name} ({currentYear})</div>
+              <div className="flex flex-col gap-2">
+                <div className="font-bold text-white text-sm">{country.name}</div>
                 <div className="flex justify-between gap-4">
-                  <span className="text-slate-400 text-xs">{getMetricLabel(metric)}:</span>
-                  <span className="text-white font-mono">{v1 !== null ? v1.toFixed(1) : 'No Data'}</span>
+                  <span className="text-slate-300 text-xs">{getMetricLabel(metric)}:</span>
+                  <span className="text-blue-300 font-mono font-bold">{v1 !== null ? v1.toFixed(1) : 'No Data'}</span>
                 </div>
-                {isRelationshipMode && secondMetric && (
-                  <div className="flex justify-between gap-4">
-                    <span className="text-slate-400 text-xs">{getMetricLabel(secondMetric)}:</span>
-                    <span className="text-white font-mono">{v2 !== null ? v2.toFixed(1) : 'No Data'}</span>
-                  </div>
-                )}
-                {!isRelationshipMode && metric === 'visibility_index' && (
-                  <div className="text-[10px] text-blue-400 mt-1 uppercase tracking-tighter">{country.visibility_band}</div>
-                )}
               </div>
             )
           });
@@ -212,7 +237,8 @@ export const WorldMap: React.FC<MapProps> = ({
         d3.select(event.currentTarget).attr('stroke-width', 0.5).attr('stroke', '#0f172a');
       })
       .on('click', (event, d: any) => {
-        const country = data.find(c => c.code === d.id);
+        const geoId = normalizeCode(d.id);
+        const country = data.find(c => c.code === d.id || c.code === geoId);
         if (country) onSelectCountry(country);
       });
 
@@ -244,7 +270,10 @@ export const WorldMap: React.FC<MapProps> = ({
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex bg-slate-800 p-1 rounded-lg border border-slate-700">
             <button
-              onClick={() => setIsRelationshipMode(false)}
+              onClick={() => {
+                setIsRelationshipMode(false);
+                setSecondMetric(null);
+              }}
               className={cn(
                 "px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-2",
                 !isRelationshipMode ? "bg-blue-600 text-white shadow-lg" : "text-slate-400 hover:text-white"
@@ -378,44 +407,50 @@ export const WorldMap: React.FC<MapProps> = ({
         </div>
 
         {/* Timeline Controls */}
-        <div className="absolute bottom-4 right-4 left-4 md:left-auto md:w-96 bg-slate-950/90 backdrop-blur p-4 rounded-xl border border-slate-800 shadow-2xl flex items-center gap-4">
-          <button 
-            onClick={() => setIsPlaying(!isPlaying)}
-            className="w-10 h-10 flex items-center justify-center bg-blue-600 hover:bg-blue-500 text-white rounded-full transition-colors shadow-lg"
-          >
-            {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" className="ml-1" />}
-          </button>
-          
-          <div className="flex-1 flex flex-col gap-1">
-            <div className="flex justify-between text-[10px] text-slate-500 font-bold uppercase tracking-widest">
-              <span>{yearRange[0]}</span>
-              <span className="text-blue-400 text-sm">{currentYear}</span>
-              <span>{yearRange[1]}</span>
+        {hasTimelineSlider ? (
+          <div className="absolute bottom-4 right-4 left-4 md:left-auto md:w-96 bg-slate-950/90 backdrop-blur p-4 rounded-xl border border-slate-800 shadow-2xl flex items-center gap-4">
+            <button 
+              onClick={() => setIsPlaying(!isPlaying)}
+              className="w-10 h-10 flex items-center justify-center bg-blue-600 hover:bg-blue-500 text-white rounded-full transition-colors shadow-lg"
+            >
+              {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" className="ml-1" />}
+            </button>
+            
+            <div className="flex-1 flex flex-col gap-1">
+              <div className="flex justify-between text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                <span>{yearRangeForSelected[0]}</span>
+                <span className="text-blue-400 text-sm">{currentYear}</span>
+                <span>{yearRangeForSelected[1]}</span>
+              </div>
+              <input 
+                type="range" 
+                min={yearRangeForSelected[0]} 
+                max={yearRangeForSelected[1]} 
+                value={currentYear} 
+                onChange={(e) => {
+                  setCurrentYear(parseInt(e.target.value));
+                  setIsPlaying(false);
+                }}
+                className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-600"
+              />
             </div>
-            <input 
-              type="range" 
-              min={yearRange[0]} 
-              max={yearRange[1]} 
-              value={currentYear} 
-              onChange={(e) => {
-                setCurrentYear(parseInt(e.target.value));
+
+            <button 
+              onClick={() => {
+                setCurrentYear(yearRangeForSelected[0]);
                 setIsPlaying(false);
               }}
-              className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-600"
-            />
+              className="p-2 text-slate-400 hover:text-white transition-colors"
+              title="Reset to start"
+            >
+              <RotateCcw size={18} />
+            </button>
           </div>
-
-          <button 
-            onClick={() => {
-              setCurrentYear(yearRange[0]);
-              setIsPlaying(false);
-            }}
-            className="p-2 text-slate-400 hover:text-white transition-colors"
-            title="Reset to start"
-          >
-            <RotateCcw size={18} />
-          </button>
-        </div>
+        ) : (
+          <div className="absolute bottom-4 right-4 left-4 md:left-auto md:w-96 bg-slate-950/90 backdrop-blur p-4 rounded-xl border border-slate-800 shadow-2xl text-slate-400 text-sm text-center">
+            Timeline controls are hidden for calculated metrics.
+          </div>
+        )}
       </div>
 
       <AnimatePresence>
