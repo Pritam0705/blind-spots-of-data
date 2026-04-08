@@ -135,6 +135,14 @@ export const WorldMap: React.FC<MapProps> = ({
     const scale1 = getIndicatorScale(metric);
     const scale2 = secondMetric ? getIndicatorScale(secondMetric) : null;
 
+    const iso3FixMap: Record<string, string> = {
+      SDS: 'SSD', // GeoJSON uses SDS for South Sudan while dataset uses SSD
+      ROM: 'ROU', // older ISO-3 alias if needed
+      ZAR: 'COD', // placeholder for possible mapping needs
+    };
+
+    const normalizeCode = (id: string) => iso3FixMap[id] || id;
+
     const g = svg.append('g');
 
     g.selectAll('path')
@@ -143,7 +151,8 @@ export const WorldMap: React.FC<MapProps> = ({
       .append('path')
       .attr('d', path as any)
       .attr('fill', (d: any) => {
-        const country = data.find(c => c.code === d.id);
+        const geoId = normalizeCode(d.id);
+        const country = data.find(c => c.code === d.id || c.code === geoId);
         if (!country) return '#1f2937';
         
         const v1 = getMetricValueAtYear(country, metric, currentYear);

@@ -12,7 +12,7 @@ export const Abstract: React.FC = () => {
           viewport={{ once: true }}
           transition={{ duration: 1 }}
         >
-          <h3 className="text-sm font-bold uppercase tracking-widest text-blue-600 mb-6">Abstract</h3>
+          <div className="text-sm font-bold uppercase tracking-widest text-blue-600 mb-6">Abstract</div>
           <p className="text-2xl md:text-3xl font-serif leading-relaxed text-slate-800 italic">
             "Global data systems are often presented as comprehensive mirrors of human progress. 
             However, significant portions of the world remain invisible to these systems. 
